@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inversion Mastery — C1+ Grammar Lab</title>
+<meta name="description" content="A multi-level C1+ English inversion mastery app with diagnostic feedback and an exit ticket.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <div class="eyebrow">ADVANCED LANGUAGE PRACTICE</div>
+    <h1>Inversion Mastery</h1>
+    <p class="tagline">From controlled practice to genuine C1+ production.</p>
+  </div>
+  <div class="header-actions">
+    <button id="resetBtn" class="ghost">Reset progress</button>
+  </div>
+</header>
+
+<main class="app-shell">
+  <aside class="sidebar">
+    <div class="progress-card">
+      <div class="small-label">YOUR PROGRESS</div>
+      <div class="progress-number" id="progressNumber">0%</div>
+      <div class="progress-bar"><span id="progressFill"></span></div>
+      <div id="progressText" class="muted">Level 1 unlocked</div>
+    </div>
+    <nav id="levelNav"></nav>
+    <div class="tip-card">
+      <strong>Core idea</strong>
+      <p>When a negative or restrictive expression comes first, English often puts the auxiliary before the subject:</p>
+      <p class="formula">Never <b>have I seen</b> …</p>
+    </div>
+  </aside>
+
+  <section class="content">
+    <div id="welcome" class="panel">
+      <div class="hero">
+        <div>
+          <span class="pill">C1+</span>
+          <h2>Master inversion — don't just recognise it.</h2>
+          <p>Work through six skill levels, then take a fresh 20-item exit ticket. The app checks what went wrong, not merely whether an answer is wrong.</p>
+          <button class="primary" id="startBtn">Start Level 1</button>
+        </div>
+        <div class="hero-grammar">
+          <div>NEGATIVE / RESTRICTIVE FRONTING</div>
+          <strong>Never <u>have I seen</u> such a thing.</strong>
+          <div class="mini-grid">
+            <span>Never</span><span>Rarely</span><span>Little</span>
+            <span>Not until</span><span>Only then</span><span>At no time</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="levelView" class="hidden"></div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
