@@ -19,7 +19,7 @@ const LEVELS = [
   {type:"mc",prompt:"Which sentence is NOT an example of the target fronted inversion?",options:["Seldom do we see such dedication.","Little did she realise the consequences.","Under no circumstances should you open the door.","We rarely see such dedication."],answer:3,rule:"The final sentence has normal word order. The adverb 'rarely' is not fronted."}
  ]},
 {
- id:2,title:"Build the Inversion",subtitle:"Put the words into the correct order. Precision matters.",skill:"SYNTHESIS",
+ id:2,title:"Build the Inversion",subtitle:"Put the scrambled words into the correct order. More than one natural sentence may be possible.",skill:"SYNTHESIS",
  pass:0.8,
  items:[
   {type:"order",prompt:"Rebuild the sentence.",words:["Never","have","I","experienced","anything","like","this"],answer:"Never have I experienced anything like this.",rule:"Never + auxiliary + subject + main verb."},
@@ -88,7 +88,7 @@ const EXIT = [
  {type:"text",prompt:"Complete: 'So unexpected ______ the announcement that several delegates left immediately.'",answer:"was",rule:"So + adjective + be + subject + that-clause: So unexpected was the announcement…"},
  {type:"transform",prompt:"Rewrite using DID. Do not change the given word.",given:"did",source:"I realised the scale of the error only when I checked the figures twice.",answer:"Only when I checked the figures twice did I realise the scale of the error.",rule:"Only when + clause + did + subject + base verb."},
  {type:"order",prompt:"Rebuild the sentence.",words:["Never","before","have","we","encountered","such","a","complex","case"],answer:"Never before have we encountered such a complex case.",rule:"Never before + have + subject + past participle."},
- {type:"diagnose",prompt:"Correct: 'Rarely has the committee rejected a proposal so abruptly.' Is this sentence actually wrong? Explain.",answer:"Rarely has the committee rejected a proposal so abruptly.",issues:[],rule:"It is correct: present perfect inversion is has + subject + past participle."},
+ {type:"diagnose",prompt:"Correct: 'Rarely has the committee rejected a proposal so abruptly.' Is this sentence actually wrong? Explain.",answer:"Rarely has the committee rejected a proposal so abruptly.",issues:[],alreadyCorrect:true,accept:["It is correct.","The sentence is correct.","No error."],rule:"It is correct: present perfect inversion is has + subject + past participle."},
  {type:"mc",prompt:"Which opening does NOT normally trigger inversion merely because it is placed first?",options:["Under no circumstances","Only then","In no way","Last Tuesday"],answer:3,rule:"A neutral time adverbial such as 'last Tuesday' does not itself trigger this inversion."},
  {type:"text",prompt:"Complete: 'Not only ______ the proposal expensive, but it was also impractical.'",answer:"was",rule:"Not only + be + subject…; the auxiliary precedes the subject."},
  {type:"transform",prompt:"Rewrite using GREAT. Preserve the meaning.",given:"great",source:"The relief was so great that she could hardly speak.",answer:"So great was the relief that she could hardly speak.",rule:"So + adjective + be + subject + that-clause."},
@@ -158,8 +158,11 @@ function questionHTML(q,i,key){
  if(q.type==="mc"){
    body=`<div class="options">${q.options.map((o,j)=>`<button class="option" data-opt="${j}">${escapeHtml(o)}</button>`).join("")}</div>`;
  } else if(q.type==="order"){
-   body=`<div class="wordbank">${q.words.map((w,j)=>`<button class="word" data-word="${j}">${escapeHtml(w)}</button>`).join("")}</div>
-   <input class="text-input order-input" placeholder="Click the words in order, or type the complete sentence." autocomplete="off">`;
+   // Deliberately scramble the word bank. Showing the words in sentence order
+   // turns a sequencing task into a memoryless copying exercise.
+   const shuffled=q.words.map((w,j)=>({w,j})).sort(()=>Math.random()-0.5);
+   body=`<div class="wordbank">${shuffled.map(x=>`<button class="word" data-word="${x.j}">${escapeHtml(x.w)}</button>`).join("")}</div>
+   <div class="order-controls"><input class="text-input order-input" placeholder="Click the words in order, or type the complete sentence." autocomplete="off"><button type="button" class="secondary clear-order">Clear</button></div>`;
  } else if(q.type==="text"){
    body=`<div class="context">${escapeHtml(q.sentence||"")}</div><input class="text-input" placeholder="Type the missing word(s)…" autocomplete="off">`;
  } else {
@@ -187,6 +190,10 @@ function bindQuestion(q,i,key){
      if(b.classList.contains("used"))return;
      input.value+=(input.value?" ":"")+q.words[+b.dataset.word];b.classList.add("used");
    });
+   card.querySelector(".clear-order").onclick=()=>{
+     input.value="";
+     card.querySelectorAll(".word").forEach(b=>b.classList.remove("used"));
+   };
  }
  card.querySelector(".check-btn").onclick=()=>check(q,i,key,card);
 }
@@ -208,20 +215,69 @@ function evaluate(q,response){
    const correct=a===expected;
    return {correct,why:correct?[]:diagnoseTyped(a,expected,q.rule),explanation:q.rule,model:q.full||q.answer};
  }
- if(q.type==="order"||q.type==="transform"||q.type==="diagnose"){
-   const expected=norm(q.answer);
+ if(q.type==="order"){
+   const expected=norm(q.answer), a=norm(response);
+   const correct=a===expected || equivalentWordOrder(a,expected);
+   return {correct,why:correct?[]:diagnoseSentence(a,expected,[],q.rule),explanation:q.rule,model:q.answer};
+ }
+ if(q.type==="transform"){
    const a=norm(response);
-   const correct=a===expected || (q.type==="order" && equivalentWordOrder(a,expected));
-   return {correct,why:correct?[]:diagnoseSentence(a,expected,q.issues||[],q.rule),explanation:q.rule,model:q.answer};
+   const accepted=[q.answer,...(q.accept||[])].map(norm);
+   const correct=accepted.some(x=>a===x) || flexibleSentenceMatch(a,q);
+   return {correct,why:correct?[]:diagnoseSentence(a,accepted[0],[],q.rule),explanation:q.rule,model:accepted[0]};
+ }
+ if(q.type==="diagnose"){
+   const a=norm(response);
+   const accepted=[q.answer,...(q.accept||[])].map(norm);
+   const correct=accepted.some(x=>a.includes(x)) || diagnoseRepairEquivalent(a,q) || (q.alreadyCorrect && diagnoseAlreadyCorrect(a));
+   return {correct,why:correct?[]:diagnoseSentence(a,accepted[0],q.issues||[],q.rule),explanation:q.rule,model:accepted[0]};
  }
  if(q.type==="synthesis"){
    const a=norm(response), start=norm(q.answer);
-   const ok=a.startsWith(start) && a.length>start.length+3 && hasInversion(a,q);
+   const ok=synthesisIsAcceptable(a,q);
    return {correct:ok,why:ok?[]:diagnoseSynthesis(a,q),explanation:q.rule,model:syntheticModel(q)};
  }
 }
 function equivalentWordOrder(a,e){
  return a===e || tokens(a).join(" ")===tokens(e).join(" ");
+}
+function flexibleSentenceMatch(a,q){
+  // Sentence transformations should allow harmless variation (articles, optional
+  // adverbs, punctuation and other wording that leaves the target structure intact),
+  // rather than demanding one memorised string.
+  if(!a) return false;
+  const given=norm(q.given||"");
+  if(given && !a.includes(given)) return false;
+  if(/^never\s+(have|has|had|did|do|does)\b/.test(a)) return true;
+  if(/^under no circumstances\s+(is|are|was|were|did|do|does|should|must|can|could|may|might|would|will|shall)\b/.test(a)) return true;
+  if(/^not until\b/.test(a) && /\b(did|had|was|were|has|have|is|are)\b/.test(a)) return true;
+  if(/^only (when|after|before|once|then|by|if)\b/.test(a) && /\b(did|do|does|had|has|have|was|were|is|are|can|could|should|would)\b/.test(a)) return true;
+  if(/^at no (time|point)\b/.test(a) && /\b(did|do|does|had|has|have|was|were|is|are|should|must|can|could)\b/.test(a)) return true;
+  if(/^so\s+\w+\s+(was|were|is|are)\b/.test(a)) return true;
+  return false;
+}
+function diagnoseRepairEquivalent(a,q){
+  if(!a || q.alreadyCorrect) return false;
+  const e=norm(q.answer);
+  // A correction may legitimately differ in harmless wording while preserving
+  // the target inversion pattern and the essential lexical content.
+  const eTokens=tokens(e).filter(x=>!['a','an','the','very','really','finally','just','also'].includes(x));
+  const aTokens=tokens(a);
+  const missing=eTokens.filter(x=>!aTokens.includes(x));
+  if(missing.length>1) return false;
+  if(/^never\b/.test(e)) return /^never\s+(have|has|had|do|does|did|was|were|is|are)\s+\w+\s+\w+/.test(a);
+  if(/^not until\b/.test(e)) return /^not until\b.*\bdid\s+\w+\s+\w+/.test(a);
+  if(/^only after\b/.test(e) || /^only when\b/.test(e) || /^only then\b/.test(e)) return /^only\b.*\b(did|do|does|had|has|have|was|were|is|are)\s+\w+\s+\w+/.test(a);
+  if(/^rarely\b/.test(e) || /^seldom\b/.test(e)) return /^(rarely|seldom)\s+(do|does|did|have|has|had|is|are|was|were)\s+\w+\s+\w+/.test(a);
+  if(/^little did\b/.test(e)) return /^little\s+did\s+\w+\s+\w+/.test(a);
+  if(/^at no (time|point)\b/.test(e)) return /^at no (time|point)\s+(did|do|does|have|has|had|was|were|is|are)\s+\w+\s+\w+/.test(a);
+  if(/^under no circumstances\b/.test(e)) return /^under no circumstances\s+(must|should|can|could|may|might|would|will|shall|is|are|was|were|did)\s+\w+\s+\w+/.test(a);
+  if(/^so\s+\w+\s+(was|were|is|are)\b/.test(e)) return /^so\s+\w+\s+(was|were|is|are)\s+\w+/.test(a);
+  return false;
+}
+function diagnoseAlreadyCorrect(a){
+  return /\b(correct|right|grammatically correct|no error|not wrong)\b/.test(a) &&
+         !/\b(should be|needs to be|change|wrong|incorrect)\b/.test(a);
 }
 function diagnoseTyped(a,e,rule){
  const why=[];
@@ -232,13 +288,14 @@ function diagnoseTyped(a,e,rule){
 }
 function diagnoseSentence(a,e,declared,rule){
  const why=[...declared];
- const at=tokens(a), et=tokens(e);
- if(at.includes("did") && !et.includes("did") && !at.includes("does") && !at.includes("do"))why.push("wrong auxiliary");
- if(/did [a-z]+ (was|were|had|has|have|did|does|is|are)\b/.test(a))why.push("verb form after did");
- if(!a.startsWith(et[0]))why.push("fronted trigger is missing or misplaced");
- if(a.includes("did ") && !a.match(/\bdid\s+\w+\s+\w+\b/))why.push("inversion word order");
- if(a.includes("did ") && /\bdid\s+\w+\s+(?:ed|ing)\b/.test(a))why.push("base-form after did");
- if(!why.length)why.push("word order or lexical choice differs from the required structure");
+ const et=tokens(e);
+ const first=et[0]||"";
+ if(!a) why.push("missing answer");
+ if(first && !a.startsWith(first) && !/^never\b|^seldom\b|^rarely\b|^little\b|^only\b|^not until\b|^at no\b|^under no\b|^in no\b|^so\b/.test(a)) why.push("the fronted trigger is missing or misplaced");
+ if(/\bdid\s+\w+\s+\w+(?:ed|ing)\b/.test(a)) why.push("use the base form after did");
+ if(/\bdoes\s+\w+\s+\w+s\b/.test(a)) why.push("use the base form after does");
+ if(/\b(?:should|must|can|could|may|might|would|will|shall)\s+\w+\s+to\s+\w+\b/.test(a)) why.push("use the base form after a modal, without to");
+ if(!why.length) why.push("the wording or word order does not yet produce a clear inversion structure");
  return [...new Set(why)];
 }
 function diagnoseSynthesis(a,q){
@@ -251,6 +308,19 @@ function diagnoseSynthesis(a,q){
  if(q.answer.toLowerCase().startsWith("under no circumstances")&&!/^under no circumstances (must|should|can|could|may|might|would|will|shall)\b/.test(a))why.push("place a modal before the subject");
  if(!why.length)why.push("the structure is incomplete or the continuation is too short");
  return why;
+}
+function synthesisIsAcceptable(a,q){
+  if(!a || a.length<8) return false;
+  const start=norm(q.answer);
+  if(start && !a.startsWith(start)) return false;
+  if(/^little did\s+\w+\s+\w+/.test(a)) return true;
+  if(/^seldom\s+(have|has|do|does|did|was|were|is|are)\s+\w+\b/.test(a)) return true;
+  if(/^only (after|when|before|once|then|by|if)\b/.test(a) && /\b(did|had|has|have|was|were|is|are|could|should|would)\s+\w+\s+\w+/.test(a)) return true;
+  if(/^not until\b/.test(a) && /\b(did|had|has|have|was|were|is|are)\s+\w+\s+\w+/.test(a)) return true;
+  if(/^under no circumstances\s+(must|should|can|could|may|might|would|will|shall)\s+\w+\s+\w+/.test(a)) return true;
+  if(/^so\s+\w+\s+(was|were|is|are)\s+\w+\b/.test(a)) return true;
+  if(/^at no (time|point)\s+(did|do|does|had|has|have|was|were|is|are|should|must|can|could)\s+\w+\b/.test(a)) return true;
+  return false;
 }
 function hasInversion(a,q){
  return ["seldom","little did","only after","so ","under no circumstances"].some(x=>a.startsWith(x)) && /\b(did|do|does|have|has|had|is|are|was|were|should|must|can|could|may|might|would|will)\b/.test(a);
@@ -267,10 +337,10 @@ function renderFeedback(card,r,q,response){
  if(r.correct){
    box.innerHTML=`<h4>✓ ${q.type==="synthesis"?"Strong production.":"Correct."}</h4><p>${escapeHtml(r.explanation)}</p>`;
  }else{
-   box.innerHTML=`<h4>Not quite — here is the diagnosis.</h4>
+   box.innerHTML=`<h4>Not quite yet — here is the diagnosis.</h4>
    <p><strong>Likely issue:</strong> ${r.why.map(x=>`<span class="analysis-chip">${escapeHtml(x)}</span>`).join(" ")}</p>
    <div class="explanation"><strong>Why:</strong> ${escapeHtml(r.explanation)}</div>
-   <p><strong>Model answer:</strong> ${escapeHtml(r.model)}</p>`;
+   <p><strong>One possible answer:</strong> ${escapeHtml(r.model)}</p>`;
  }
 }
 function updateLevelScore(id){

@@ -67,3 +67,10 @@ To add a task, copy an existing object and provide the expected answer plus a `r
 ## Important implementation note
 
 The open-ended C1+ checking is intentionally conservative: it checks required structural features rather than pretending that a simple string comparison can perfectly judge every possible grammatical sentence. For a production classroom version, the next upgrade would be an LLM or grammar-analysis service behind a secure API, with teacher-defined rubrics and human override.
+
+### v0.2 interaction improvements
+- Word-order tasks now scramble the word bank on every render, so students cannot simply copy the displayed sentence order.
+- A **Clear** control lets students rebuild a sentence without refreshing the task.
+- Error-correction accepts the model correction **and reasonable equivalent repairs** instead of requiring one memorised string.
+- A genuinely correct diagnosis of an already-correct sentence is accepted (including concise explanations such as “It is correct” / “No error”).
+- Free-production and transformation tasks are intentionally less rigid: punctuation, harmless wording variation and multiple valid inversion patterns are accepted where the target grammar remains intact.

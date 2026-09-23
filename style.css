@@ -54,3 +54,9 @@ h1{font-size:25px;margin:2px 0 0;letter-spacing:-.02em}
 .toast{position:fixed;right:20px;bottom:20px;background:#18222c;color:#fff;padding:10px 14px;border-radius:9px;opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none;font-size:13px}.toast.show{opacity:1;transform:none}
 @media(max-width:850px){.app-shell{grid-template-columns:1fr}.sidebar{border-right:0;border-bottom:1px solid var(--line)}#levelNav{grid-template-columns:repeat(2,1fr)}.hero{grid-template-columns:1fr}.content{padding:18px}.topbar{padding:15px 18px}}
 @media(max-width:520px){.hero h2{font-size:28px}.hero{padding:25px}.question-card{padding:18px}.level-head{display:block}.skill-tag{display:inline-block;margin-top:10px}}
+
+/* Build tasks: the bank is intentionally scrambled and can be cleared without
+   making students retype the whole sentence. */
+.order-controls{display:flex;gap:10px;align-items:center;margin-top:12px}
+.order-controls .order-input{flex:1;margin-top:0}
+.word.used{opacity:.38;text-decoration:line-through}
